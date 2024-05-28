@@ -10,84 +10,67 @@
 
 #include <JrkG2.h>
 
+// Initialize JrkG2 control
 JrkG2I2C jrk;
+
+// Define Pins
 int forwardPin = 5;
 int backwardPin = 6;
-int motorPin = 7;
+int activationPin = 7;
 int potentioPin = A0;
-int potentioGND = 4;
 
-  int forwardState = 0;
-  int backwardState = 0;
-  int motorState = 0;
-  int direction = 0;
-  int speed = 0;
-  int potentioVoltage = 0;
+// Initialize Parameters
+int direction = 0;
+int speed = 0;
+int potentioVoltage = 0;
 
-// define system parameters
-const int targetSpeed = 2047;  // Define your target speed
-const int minSpeed = 300; // Define minimum speed to overcome motor friction
-const float accelerationTime = 1000; // time from standstill to target_speed in milliseconds
-
-// initialize variables
-long previousTime; // [micro seconds]
-long currentTime; // [micro seconds]
-long timeDelta; // [milli seconds]
+// Define System Parameters
+const int topSpeed = 600;  // Define your target speed
+const int minSpeed = 180; // Define minimum speed to overcome motor friction
 
 void setup()
 {
+  // Initialize Pins
   pinMode(forwardPin, INPUT_PULLUP);
   pinMode(backwardPin, INPUT_PULLUP);
-  pinMode(motorPin, INPUT_PULLUP);
-  pinMode(4, OUTPUT);
-  digitalWrite(4, LOW);
+  pinMode(activationPin, INPUT_PULLUP);
 
   // Set up I2C.
   Wire.begin();
+
+  // Set up Serial Connection
   Serial.begin(9600);
-  previousTime = micros();
 }
 
 void loop()
-{
-  Serial.println("#");
-  // read switch values
-  forwardState = !digitalRead(forwardPin);
-  backwardState = !digitalRead(backwardPin);
-  motorState = !digitalRead(motorPin);
-
-  // define direction
-  direction = 0;
-  if(forwardState) {direction = 1;} //Serial.print("forward");}
-  if(backwardState) {direction = -1;} //Serial.print("back");}
-
-  // define motor speed
-  // read potentiometer Voltag [0 - 1023]
+{  
+  // Read Potentio Voltage
   potentioVoltage = analogRead(potentioPin);
-  //Serial.print(potentioVoltage);
-  //int outputSpeed = potentioVoltage / 1023 * 2047;
-  //Serial.print(outputSpeed);
 
-  // Calculate velocityIncrease since last update
-  currentTime = micros();
-  timeDelta = (float)(currentTime - previousTime) / 1000; // [milli seconds]
-  previousTime = currentTime;
+  // Check if motor is activated
+  if(!digitalRead(activationPin)){
 
-  const float velocityDelta = (float)(targetSpeed - minSpeed) / accelerationTime * timeDelta;
+    // Check in which direction the motor should move
+    direction = 0;
+    if(!digitalRead(forwardPin)) { direction = -1; }
+    if(!digitalRead(backwardPin)) { direction = 1; }
 
-  // Motor speed up
-  if (motorState) {
-    // set speed to min speed if it was at standstill before
-    if (speed < minSpeed){speed = minSpeed;}
+    // Calculate speed
+    
+    speed = direction * map(potentioVoltage, 0, 1023, topSpeed, minSpeed);
+    
+  } else{
+    speed = 0;
+  }
 
-    // accelerate speed if it's below targetSpeed
-    // set speed to target speed if it's above targetSpeed
-    if (speed < targetSpeed) { speed += velocityDelta; } else{ speed = targetSpeed; }
-  } else { speed = 0; }
-  
-  Serial.print("Speed: ");
-  Serial.println(speed);
+  // Send speed to motor driver
+  jrk.setTarget(2048 + speed);
 
-  // send target speed
-  jrk.setTarget(2048 + direction * speed);
+  // Send debug information over serial connection
+  Serial.print(" Potentio Voltage: ");
+  Serial.print(potentioVoltage);
+  Serial.print(", Speed: ");
+  Serial.print(speed);
+  Serial.print(", Direction: ");
+  Serial.println(direction);
 }
