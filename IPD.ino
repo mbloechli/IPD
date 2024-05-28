@@ -24,6 +24,15 @@ int potentioGND = 4;
   int speed = 0;
   int potentioVoltage = 0;
 
+//justin___________
+const int target_speed = 2047;  // Define your target speed
+unsigned long previousMillis = 0;  // Store the last time the speed was updated
+const unsigned long interval = 1000;  // Interval for updating the speed (in milliseconds)
+
+// Calculate the amount of speed change per interval
+const float speedChangePerInterval = (float)target_speed / (600.0 / interval);
+//__________________
+
 void setup()
 {
   pinMode(forwardPin, INPUT_PULLUP);
@@ -47,20 +56,39 @@ void loop()
 
   // define direction
   direction = 0;
-  if(forwardState) {direction = 1; Serial.print("forward");}
-  if(backwardState) {direction = -1; Serial.print("back");}
+  if(forwardState) {direction = 1;} //Serial.print("forward");}
+  if(backwardState) {direction = -1;} //Serial.print("back");}
 
   // define motor speed
   // read potentiometer Voltag [0 - 1023]
   potentioVoltage = analogRead(potentioPin);
-  Serial.print(potentioVoltage);
+  //Serial.print(potentioVoltage);
   //int outputSpeed = potentioVoltage / 1023 * 2047;
   //Serial.print(outputSpeed);
 
+//justin___________________
+ unsigned long currentMillis = millis();
 
-  speed = 0;
-  if(motorState) {speed = 2047; Serial.print("running");}
+  if (currentMillis - previousMillis >= interval) {
+    previousMillis = currentMillis;  // Update the last time the speed was updated
 
+    if (motorState) {
+      if (speed < target_speed) {
+        speed += speedChangePerInterval;
+        if (speed > target_speed) {
+          speed = target_speed;
+        }
+      }
+      Serial.print("running, speed: ");
+      //Serial.print(speedChangePerInterval);
+      Serial.println(speed);
+    } else {
+      // If motorState is false, set the speed to 0 instantly
+      speed = 0;
+      Serial.println("Motor stopped");
+    }
+  }
+//______________________
 
   // send target speed
   jrk.setTarget(2048 + direction * speed);
